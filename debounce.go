@@ -18,7 +18,7 @@ import (
 // The function will be called after it stops being called for the given duration.
 // The created debounced function can be invoked with different functions, if needed,
 // the last one will win.
-// Also ote that a stop signal means a full stop of the debouncer; there is no
+// Also note that a stop signal means a full stop of the debouncer; there is no
 // concept of flushing future invocations.
 func New(d time.Duration) (func(f func()), chan struct{}) {
 	in, out, quit := debounceChan(d)
