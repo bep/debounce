@@ -18,6 +18,8 @@ typing a text into a form; the UI needs an update, but let's wait for a break.
 
 `New` returns a debounced function and a channel that can be closed to signal a stop of the goroutine. The function will, as long as it continues to be invoked, not be triggered. The function will be called after it stops being called for the given duration. Note that a stop signal means a full stop of the debouncer; there is no concept of flushing future invocations. 
 
+**Note:** The created debounced function can be invoked with different functions, if needed, the last one will win.
+
 An example:
 
 ```go

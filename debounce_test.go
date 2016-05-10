@@ -2,6 +2,8 @@ package debounce_test
 
 import (
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -61,6 +63,43 @@ func TestDebounce(t *testing.T) {
 		t.Error("Expected count 8, was", counter2)
 	}
 
+}
+
+func TestDebounceInParallel(t *testing.T) {
+	defer leaktest.Check(t)()
+
+	var counter uint64
+
+	f := func() {
+		atomic.AddUint64(&counter, 1)
+	}
+
+	debounced, shutdown := debounce.New(100 * time.Millisecond)
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			debouncedInner, shutdown := debounce.New(100 * time.Millisecond)
+			for j := 0; j < 10; j++ {
+				debouncedInner(f)
+				debounced(f)
+			}
+			time.Sleep(150 * time.Millisecond)
+			close(shutdown)
+		}()
+	}
+	wg.Wait()
+
+	close(shutdown)
+
+	<-time.After(200 * time.Millisecond)
+
+	if counter != 21 {
+		t.Error("Expected count 21, was", counter)
+	}
 }
 
 func TestDebounceCloseEarly(t *testing.T) {

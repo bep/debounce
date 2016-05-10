@@ -16,7 +16,9 @@ import (
 // of the goroutine.
 // The function will, as long as it continues to be invoked, not be triggered.
 // The function will be called after it stops being called for the given duration.
-// Note that a stop signal means a full stop of the debouncer; there is no
+// The created debounced function can be invoked with different functions, if needed,
+// the last one will win.
+// Also ote that a stop signal means a full stop of the debouncer; there is no
 // concept of flushing future invocations.
 func New(d time.Duration) (func(f func()), chan struct{}) {
 	in, out, quit := debounceChan(d)
