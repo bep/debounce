@@ -14,7 +14,7 @@ before_script:
   - go get -u github.com/golang/lint/golint
 
 script:
-  - go test -v --race ./...
+  - go test -race ./lib -coverprofile=coverage.txt -covermode=atomic
 
 after_script:
   - test -z "$(gofmt -s -l -w . | tee /dev/stderr)"
