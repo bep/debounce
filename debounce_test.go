@@ -14,20 +14,21 @@ import (
 func TestDebounce(t *testing.T) {
 	defer leaktest.Check(t)()
 
-	counter1 := 0
+	var (
+		counter1 uint64
+		counter2 uint64
+	)
 
 	f1 := func() {
-		counter1++
+		atomic.AddUint64(&counter1, 1)
 	}
 
-	counter2 := 0
-
 	f2 := func() {
-		counter2++
+		atomic.AddUint64(&counter2, 1)
 	}
 
 	f3 := func() {
-		counter2 += 2
+		atomic.AddUint64(&counter2, 2)
 	}
 
 	debounced, shutdown := debounce.New(100 * time.Millisecond)
@@ -55,14 +56,14 @@ func TestDebounce(t *testing.T) {
 
 	<-time.After(200 * time.Millisecond)
 
-	if counter1 != 3 {
-		t.Error("Expected count 3, was", counter1)
+	c1 := int(atomic.LoadUint64(&counter1))
+	c2 := int(atomic.LoadUint64(&counter2))
+	if c1 != 3 {
+		t.Error("Expected count 3, was", c1)
 	}
-
-	if counter2 != 8 {
-		t.Error("Expected count 8, was", counter2)
+	if c2 != 8 {
+		t.Error("Expected count 8, was", c2)
 	}
-
 }
 
 func TestDebounceInParallel(t *testing.T) {
@@ -97,18 +98,19 @@ func TestDebounceInParallel(t *testing.T) {
 
 	<-time.After(200 * time.Millisecond)
 
-	if counter != 21 {
-		t.Error("Expected count 21, was", counter)
+	c := int(atomic.LoadUint64(&counter))
+	if c != 21 {
+		t.Error("Expected count 21, was", c)
 	}
 }
 
 func TestDebounceCloseEarly(t *testing.T) {
 	defer leaktest.Check(t)()
 
-	counter := 0
+	var counter uint64
 
 	f := func() {
-		counter++
+		atomic.AddUint64(&counter, 1)
 	}
 
 	debounced, finish := debounce.New(100 * time.Millisecond)
@@ -119,17 +121,18 @@ func TestDebounceCloseEarly(t *testing.T) {
 
 	<-time.After(200 * time.Millisecond)
 
-	if counter != 0 {
-		t.Error("Expected count 0, was", counter)
+	c := int(atomic.LoadUint64(&counter))
+	if c != 0 {
+		t.Error("Expected count 0, was", c)
 	}
 
 }
 
 func BenchmarkDebounce(b *testing.B) {
-	counter := 0
+	var counter uint64
 
 	f := func() {
-		counter++
+		atomic.AddUint64(&counter, 1)
 	}
 
 	debounced, finish := debounce.New(100 * time.Millisecond)
@@ -139,16 +142,17 @@ func BenchmarkDebounce(b *testing.B) {
 		debounced(f)
 	}
 	close(finish)
-	if counter != 0 {
-		b.Fatal("Expected count 0, was", counter)
+	c := int(atomic.LoadUint64(&counter))
+	if c != 0 {
+		b.Fatal("Expected count 0, was", c)
 	}
 }
 
 func ExampleNew() {
-	counter := 0
+	var counter uint64
 
 	f := func() {
-		counter++
+		atomic.AddUint64(&counter, 1)
 	}
 
 	debounced, finish := debounce.New(100 * time.Millisecond)
@@ -165,6 +169,8 @@ func ExampleNew() {
 
 	<-time.After(200 * time.Millisecond)
 
-	fmt.Println("Counter is", counter)
+	c := int(atomic.LoadUint64(&counter))
+
+	fmt.Println("Counter is", c)
 	// Output: Counter is 3
 }
