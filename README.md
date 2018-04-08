@@ -24,27 +24,32 @@ typing a text into a form; the UI needs an update, but let's wait for a break.
 An example:
 
 ```go
-	counter := 0
-	
+func ExampleNew() {
+	var counter uint64
+
 	f := func() {
-		counter++
+		atomic.AddUint64(&counter, 1)
 	}
 
-	debounced, finish := debounce.New(2*time.Second)
+	debounced, finish, done := debounce.New(100 * time.Millisecond)
 
-	for i := 0; i < 10; i++ {
-		debounced(f)
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 10; j++ {
+			debounced(f)
+		}
+
+		time.Sleep(200 * time.Millisecond)
 	}
 
-	time.Sleep(3 * time.Second)
-    
-    close(finish)
-	
-	<-time.After(200 * time.Millisecond)
+	close(finish)
 
-	if counter != 1 {
-		panic("Count mismatch")
-	}
+	<-done
+
+	c := int(atomic.LoadUint64(&counter))
+
+	fmt.Println("Counter is", c)
+	// Output: Counter is 3
+}
 ```
 
 ## Tests
