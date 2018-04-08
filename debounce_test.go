@@ -31,7 +31,7 @@ func TestDebounce(t *testing.T) {
 		atomic.AddUint64(&counter2, 2)
 	}
 
-	debounced, shutdown := debounce.New(100 * time.Millisecond)
+	debounced, shutdown, done := debounce.New(100 * time.Millisecond)
 
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 10; j++ {
@@ -54,7 +54,7 @@ func TestDebounce(t *testing.T) {
 
 	close(shutdown)
 
-	<-time.After(200 * time.Millisecond)
+	<-done
 
 	c1 := int(atomic.LoadUint64(&counter1))
 	c2 := int(atomic.LoadUint64(&counter2))
@@ -75,7 +75,7 @@ func TestDebounceInParallel(t *testing.T) {
 		atomic.AddUint64(&counter, 1)
 	}
 
-	debounced, shutdown := debounce.New(100 * time.Millisecond)
+	debounced, shutdown, done := debounce.New(100 * time.Millisecond)
 
 	var wg sync.WaitGroup
 
@@ -83,20 +83,21 @@ func TestDebounceInParallel(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			debouncedInner, shutdown := debounce.New(100 * time.Millisecond)
+			debouncedInner, shutdown, done := debounce.New(100 * time.Millisecond)
 			for j := 0; j < 10; j++ {
 				debouncedInner(f)
 				debounced(f)
 			}
 			time.Sleep(150 * time.Millisecond)
 			close(shutdown)
+			<-done
 		}()
 	}
 	wg.Wait()
 
 	close(shutdown)
 
-	<-time.After(200 * time.Millisecond)
+	<-done
 
 	c := int(atomic.LoadUint64(&counter))
 	if c != 21 {
@@ -113,13 +114,13 @@ func TestDebounceCloseEarly(t *testing.T) {
 		atomic.AddUint64(&counter, 1)
 	}
 
-	debounced, finish := debounce.New(100 * time.Millisecond)
+	debounced, finish, done := debounce.New(100 * time.Millisecond)
 
 	debounced(f)
 
 	close(finish)
 
-	<-time.After(200 * time.Millisecond)
+	<-done
 
 	c := int(atomic.LoadUint64(&counter))
 	if c != 0 {
@@ -135,13 +136,15 @@ func BenchmarkDebounce(b *testing.B) {
 		atomic.AddUint64(&counter, 1)
 	}
 
-	debounced, finish := debounce.New(100 * time.Millisecond)
+	debounced, finish, done := debounce.New(100 * time.Millisecond)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		debounced(f)
 	}
 	close(finish)
+	<-done
+
 	c := int(atomic.LoadUint64(&counter))
 	if c != 0 {
 		b.Fatal("Expected count 0, was", c)
@@ -155,7 +158,7 @@ func ExampleNew() {
 		atomic.AddUint64(&counter, 1)
 	}
 
-	debounced, finish := debounce.New(100 * time.Millisecond)
+	debounced, finish, done := debounce.New(100 * time.Millisecond)
 
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 10; j++ {
@@ -167,7 +170,7 @@ func ExampleNew() {
 
 	close(finish)
 
-	<-time.After(200 * time.Millisecond)
+	<-done
 
 	c := int(atomic.LoadUint64(&counter))
 
