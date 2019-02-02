@@ -1,4 +1,4 @@
-// Copyright © 2016 Bjørn Erik Pedersen <bjorn.erik.pedersen@gmail.com>.
+// Copyright © 2019 Bjørn Erik Pedersen <bjorn.erik.pedersen@gmail.com>.
 //
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
@@ -9,6 +9,7 @@
 package debounce
 
 import (
+	"sync"
 	"time"
 )
 
@@ -26,11 +27,15 @@ func New(after time.Duration) func(f func()) {
 }
 
 type debouncer struct {
+	mu    sync.Mutex
 	after time.Duration
 	timer *time.Timer
 }
 
 func (d *debouncer) add(f func()) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
 	if d.timer != nil {
 		d.timer.Stop()
 	}

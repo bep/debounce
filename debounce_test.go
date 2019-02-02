@@ -2,6 +2,7 @@ package debounce_test
 
 import (
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -58,6 +59,31 @@ func TestDebounce(t *testing.T) {
 	}
 }
 
+func TestDebounceConcurrentAdd(t *testing.T) {
+	var wg sync.WaitGroup
+
+	var flag uint64
+
+	debounced := debounce.New(100 * time.Millisecond)
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			debounced(func() {
+				atomic.CompareAndSwapUint64(&flag, 0, 1)
+			})
+		}()
+	}
+	wg.Wait()
+
+	time.Sleep(500 * time.Millisecond)
+	c := int(atomic.LoadUint64(&flag))
+	if c != 1 {
+		t.Error("Flag not set")
+	}
+}
+
 // Issue #1
 func TestDebounceDelayed(t *testing.T) {
 
@@ -75,7 +101,7 @@ func TestDebounceDelayed(t *testing.T) {
 
 	debounced(f1)
 
-	time.Sleep(110 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
 	c1 := int(atomic.LoadUint64(&counter1))
 	if c1 != 1 {
