@@ -12,60 +12,27 @@ import (
 	"time"
 )
 
-// New returns a debounced function and two channels:
-// 1. A quit channel that can be closed to signal a stop
-// 2. A done channel that signals when the debouncer is completed
-// of the goroutine.
-// The function will, as long as it continues to be invoked, not be triggered.
-// The function will be called after it stops being called for the given duration.
-// The created debounced function can be invoked with different functions, if needed,
+// New returns a debounced function that takes another functions as its argument.
+// This function will be called when the debounced function stops being called
+// for the given duration.
+// The debounced function can be invoked with different functions, if needed,
 // the last one will win.
-// Also note that a stop signal means a full stop of the debouncer; there is no
-// concept of flushing future invocations.
-func New(d time.Duration) (func(f func()), chan struct{}, chan struct{}) {
-	in, out, quit := debounceChan(d)
-	done := make(chan struct{})
+func New(after time.Duration) func(f func()) {
+	d := &debouncer{after: after}
 
-	go func() {
-		for {
-			select {
-			case f := <-out:
-				f()
-			case <-quit:
-				close(out)
-				close(in)
-				close(done)
-				return
-			}
-		}
-	}()
-
-	debounce := func(f func()) {
-		in <- f
+	return func(f func()) {
+		d.add(f)
 	}
-
-	return debounce, quit, done
 }
 
-func debounceChan(interval time.Duration) (in, out chan func(), quit chan struct{}) {
-	in = make(chan func(), 1)
-	out = make(chan func())
-	quit = make(chan struct{})
+type debouncer struct {
+	after time.Duration
+	timer *time.Timer
+}
 
-	go func() {
-		var f func() = func() {}
-		for {
-			select {
-			case f = <-in:
-			case <-time.After(interval):
-				out <- f
-				<-in
-				// new interval
-			case <-quit:
-				return
-			}
-		}
-	}()
-
-	return
+func (d *debouncer) add(f func()) {
+	if d.timer != nil {
+		d.timer.Stop()
+	}
+	d.timer = time.AfterFunc(d.after, f)
 }

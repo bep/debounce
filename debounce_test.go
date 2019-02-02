@@ -2,18 +2,14 @@ package debounce_test
 
 import (
 	"fmt"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/bep/debounce"
-	"github.com/fortytw2/leaktest"
 )
 
 func TestDebounce(t *testing.T) {
-	defer leaktest.Check(t)()
-
 	var (
 		counter1 uint64
 		counter2 uint64
@@ -31,7 +27,7 @@ func TestDebounce(t *testing.T) {
 		atomic.AddUint64(&counter2, 2)
 	}
 
-	debounced, shutdown, done := debounce.New(100 * time.Millisecond)
+	debounced := debounce.New(100 * time.Millisecond)
 
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 10; j++ {
@@ -52,10 +48,6 @@ func TestDebounce(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 	}
 
-	close(shutdown)
-
-	<-done
-
 	c1 := int(atomic.LoadUint64(&counter1))
 	c2 := int(atomic.LoadUint64(&counter2))
 	if c1 != 3 {
@@ -66,65 +58,28 @@ func TestDebounce(t *testing.T) {
 	}
 }
 
-func TestDebounceInParallel(t *testing.T) {
-	defer leaktest.Check(t)()
+// Issue #1
+func TestDebounceDelayed(t *testing.T) {
 
-	var counter uint64
+	var (
+		counter1 uint64
+	)
 
-	f := func() {
-		atomic.AddUint64(&counter, 1)
+	f1 := func() {
+		atomic.AddUint64(&counter1, 1)
 	}
 
-	debounced, shutdown, done := debounce.New(100 * time.Millisecond)
+	debounced := debounce.New(100 * time.Millisecond)
 
-	var wg sync.WaitGroup
+	time.Sleep(110 * time.Millisecond)
 
-	for i := 0; i < 20; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			debouncedInner, shutdown, done := debounce.New(100 * time.Millisecond)
-			for j := 0; j < 10; j++ {
-				debouncedInner(f)
-				debounced(f)
-			}
-			time.Sleep(150 * time.Millisecond)
-			close(shutdown)
-			<-done
-		}()
-	}
-	wg.Wait()
+	debounced(f1)
 
-	close(shutdown)
+	time.Sleep(110 * time.Millisecond)
 
-	<-done
-
-	c := int(atomic.LoadUint64(&counter))
-	if c != 21 {
-		t.Error("Expected count 21, was", c)
-	}
-}
-
-func TestDebounceCloseEarly(t *testing.T) {
-	defer leaktest.Check(t)()
-
-	var counter uint64
-
-	f := func() {
-		atomic.AddUint64(&counter, 1)
-	}
-
-	debounced, finish, done := debounce.New(100 * time.Millisecond)
-
-	debounced(f)
-
-	close(finish)
-
-	<-done
-
-	c := int(atomic.LoadUint64(&counter))
-	if c != 0 {
-		t.Error("Expected count 0, was", c)
+	c1 := int(atomic.LoadUint64(&counter1))
+	if c1 != 1 {
+		t.Error("Expected count 1, was", c1)
 	}
 
 }
@@ -136,14 +91,12 @@ func BenchmarkDebounce(b *testing.B) {
 		atomic.AddUint64(&counter, 1)
 	}
 
-	debounced, finish, done := debounce.New(100 * time.Millisecond)
+	debounced := debounce.New(100 * time.Millisecond)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		debounced(f)
 	}
-	close(finish)
-	<-done
 
 	c := int(atomic.LoadUint64(&counter))
 	if c != 0 {
@@ -158,7 +111,7 @@ func ExampleNew() {
 		atomic.AddUint64(&counter, 1)
 	}
 
-	debounced, finish, done := debounce.New(100 * time.Millisecond)
+	debounced := debounce.New(100 * time.Millisecond)
 
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 10; j++ {
@@ -167,10 +120,6 @@ func ExampleNew() {
 
 		time.Sleep(200 * time.Millisecond)
 	}
-
-	close(finish)
-
-	<-done
 
 	c := int(atomic.LoadUint64(&counter))
 
