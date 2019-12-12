@@ -57,14 +57,15 @@ func (d *debouncer) debounced(f func()) {
 			d.timer = nil
 			d.mu.Unlock()
 		})
-	}
-	d.timer.Stop()
-	d.timer = time.AfterFunc(d.after, func() {
-		d.mu.Lock()
+	} else {
 		d.timer.Stop()
-		d.timer = nil
-		d.mu.Unlock()
-	})
+		d.timer = time.AfterFunc(d.after, func() {
+			d.mu.Lock()
+			d.timer.Stop()
+			d.timer = nil
+			d.mu.Unlock()
+		})
+	}
 
 	d.mu.Unlock()
 }
