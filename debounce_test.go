@@ -1,7 +1,6 @@
 package debounce_test
 
 import (
-	"bytes"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	"github.com/bep/debounce"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestDebounce(t *testing.T) {
@@ -209,68 +207,4 @@ func ExampleNew() {
 
 	fmt.Println("Counter is", c)
 	// Output: Counter is 3
-}
-
-func TestNewDebounce(t *testing.T) {
-	t.Parallel()
-
-	t.Run("immediate true", func(t *testing.T) {
-		t.Parallel()
-
-		d := 10 * time.Millisecond
-		ticker := time.NewTicker(d / 10)
-		timer := time.NewTimer(d)
-		deb := debounce.New(d, true)
-		buf := new(bytes.Buffer)
-		f := func() {
-			_, _ = fmt.Fprint(buf, "test")
-		}
-		deb(f)
-		// f executed immediately
-		assert.Equal(t, "test", buf.String())
-
-	Loop:
-		for {
-			select {
-			case <-ticker.C:
-				deb(f)
-			case <-timer.C:
-				ticker.Stop()
-				timer.Stop()
-				break Loop
-			}
-		}
-
-		assert.Equal(t, "test", buf.String())
-	})
-
-	t.Run("immediate false", func(t *testing.T) {
-		d := 10 * time.Millisecond
-		ticker := time.NewTicker(d / 10)
-		timer := time.NewTimer(d)
-		deb := debounce.New(d, false)
-		buf := new(bytes.Buffer)
-		f := func() {
-			_, _ = fmt.Fprint(buf, "test")
-		}
-		deb(f)
-		// f not executed now
-		assert.NotEqual(t, "test", buf.String())
-
-	Loop:
-		for {
-			select {
-			case <-ticker.C:
-				deb(f)
-			case <-timer.C:
-				ticker.Stop()
-				timer.Stop()
-				break Loop
-			}
-		}
-
-		// slightly more time for ops
-		time.Sleep(d + d/10)
-		assert.Equal(t, "test", buf.String())
-	})
 }
