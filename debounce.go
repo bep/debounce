@@ -13,16 +13,20 @@ import (
 	"time"
 )
 
-// New returns a debounced function that takes another functions as its argument.
-// This function will be called when the debounced function stops being called
-// for the given duration.
-// The debounced function can be invoked with different functions, if needed,
-// the last one will win.
-func New(after time.Duration) func(f func()) {
+// New wraps a function and returns a wrapped debounce function, that,
+// as long as it continues to be invoked, will not be triggered.
+// The function will be called after it stops being called for N milliseconds
+// If `immediate` is passed, trigger the function on the leading edge, instead of the trailing.
+func New(after time.Duration, immediate bool) (debounce func(f func())) {
 	d := &debouncer{after: after}
 
+	if !immediate {
+		return func(f func()) {
+			d.debounce(f)
+		}
+	}
 	return func(f func()) {
-		d.add(f)
+		d.debounced(f)
 	}
 }
 
@@ -32,7 +36,7 @@ type debouncer struct {
 	timer *time.Timer
 }
 
-func (d *debouncer) add(f func()) {
+func (d *debouncer) debounce(f func()) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -40,4 +44,27 @@ func (d *debouncer) add(f func()) {
 		d.timer.Stop()
 	}
 	d.timer = time.AfterFunc(d.after, f)
+}
+
+func (d *debouncer) debounced(f func()) {
+	d.mu.Lock()
+
+	if d.timer == nil {
+		f()
+		d.timer = time.AfterFunc(d.after, func() {
+			d.mu.Lock()
+			d.timer.Stop()
+			d.timer = nil
+			d.mu.Unlock()
+		})
+	}
+	d.timer.Stop()
+	d.timer = time.AfterFunc(d.after, func() {
+		d.mu.Lock()
+		d.timer.Stop()
+		d.timer = nil
+		d.mu.Unlock()
+	})
+
+	d.mu.Unlock()
 }
