@@ -1,3 +1,6 @@
+// Copyright 2024 Bjørn Erik Pedersen
+// SPDX-License-Identifier: MIT
+
 package debounce_test
 
 import (
