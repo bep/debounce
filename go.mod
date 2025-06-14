@@ -1,1 +1,1 @@
-module github.com/bep/debounce
+module github.com/floatdrop/debounce
