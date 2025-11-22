@@ -26,6 +26,26 @@ func New(after time.Duration) func(f func()) {
 	}
 }
 
+// NewWithCancel returns a debounced function together with a cancel function.
+// The debounced function behaves like the one returned by New: it takes another
+// function as its argument, and that function will be invoked when calls to the
+// debounced function have stopped for the given duration. If invoked multiple
+// times, the last provided function will win.
+//
+// The returned cancel function stops any pending timer and prevents the
+// currently scheduled function (if any) from being called. Calling cancel has
+// no effect if no function is scheduled or if it already executed.
+//
+// This is useful in shutdown scenarios where the final scheduled function must
+// be suppressed or handled explicitly.
+func NewWithCancel(after time.Duration) (func(f func()), func()) {
+	d := &debouncer{after: after}
+
+	return func(f func()) {
+		d.add(f)
+	}, d.cancel
+}
+
 type debouncer struct {
 	mu    sync.Mutex
 	after time.Duration
@@ -40,4 +60,14 @@ func (d *debouncer) add(f func()) {
 		d.timer.Stop()
 	}
 	d.timer = time.AfterFunc(d.after, f)
+}
+
+func (d *debouncer) cancel() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if d.timer != nil {
+		d.timer.Stop()
+		d.timer = nil
+	}
 }

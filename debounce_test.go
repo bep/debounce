@@ -155,3 +155,28 @@ func ExampleNew() {
 	fmt.Println("Counter is", c)
 	// Output: Counter is 3
 }
+
+func TestDebounceCancel(t *testing.T) {
+	var called int32
+
+	debounced, cancel := debounce.NewWithCancel(50 * time.Millisecond)
+
+	// Schedule a call that would normally be executed.
+	debounced(func() {
+		atomic.StoreInt32(&called, 1)
+	})
+
+	// Cancel it before the timer is triggered.
+	cancel()
+
+	// Wait slightly longer than the debounce interval - if cancel did not work,
+	//the function will execute and the test will fail.
+	time.Sleep(70 * time.Millisecond)
+
+	if atomic.LoadInt32(&called) != 0 {
+		t.Fatal("expected debounced function NOT to be called after cancel")
+	}
+
+	// Additionally, verify that calling cancel repeatedly is safe.
+	cancel()
+}
