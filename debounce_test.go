@@ -33,19 +33,19 @@ func TestDebounce(t *testing.T) {
 
 	debounced := debounce.New(100 * time.Millisecond)
 
-	for i := 0; i < 3; i++ {
-		for j := 0; j < 10; j++ {
+	for range 3 {
+		for range 10 {
 			debounced(f1)
 		}
 
 		time.Sleep(200 * time.Millisecond)
 	}
 
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 10; j++ {
+	for range 4 {
+		for range 10 {
 			debounced(f2)
 		}
-		for j := 0; j < 10; j++ {
+		for range 10 {
 			debounced(f3)
 		}
 
@@ -69,7 +69,7 @@ func TestDebounceConcurrentAdd(t *testing.T) {
 
 	debounced := debounce.New(100 * time.Millisecond)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -142,8 +142,8 @@ func ExampleNew() {
 
 	debounced := debounce.New(100 * time.Millisecond)
 
-	for i := 0; i < 3; i++ {
-		for j := 0; j < 10; j++ {
+	for range 3 {
+		for range 10 {
 			debounced(f)
 		}
 
