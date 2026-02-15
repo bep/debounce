@@ -70,13 +70,11 @@ func TestDebounceConcurrentAdd(t *testing.T) {
 	debounced := debounce.New(100 * time.Millisecond)
 
 	for range 10 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			debounced(func() {
 				atomic.CompareAndSwapUint64(&flag, 0, 1)
 			})
-		}()
+		})
 	}
 	wg.Wait()
 
