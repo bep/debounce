@@ -8,107 +8,112 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/bep/debounce"
 )
 
 func TestDebounce(t *testing.T) {
-	var (
-		counter1 uint64
-		counter2 uint64
-	)
+	synctest.Test(t, func(t *testing.T) {
+		var (
+			counter1 uint64
+			counter2 uint64
+		)
 
-	f1 := func() {
-		atomic.AddUint64(&counter1, 1)
-	}
-
-	f2 := func() {
-		atomic.AddUint64(&counter2, 1)
-	}
-
-	f3 := func() {
-		atomic.AddUint64(&counter2, 2)
-	}
-
-	debounced := debounce.New(100 * time.Millisecond)
-
-	for range 3 {
-		for range 10 {
-			debounced(f1)
+		f1 := func() {
+			atomic.AddUint64(&counter1, 1)
 		}
 
-		time.Sleep(200 * time.Millisecond)
-	}
-
-	for range 4 {
-		for range 10 {
-			debounced(f2)
-		}
-		for range 10 {
-			debounced(f3)
+		f2 := func() {
+			atomic.AddUint64(&counter2, 1)
 		}
 
-		time.Sleep(200 * time.Millisecond)
-	}
+		f3 := func() {
+			atomic.AddUint64(&counter2, 2)
+		}
 
-	c1 := int(atomic.LoadUint64(&counter1))
-	c2 := int(atomic.LoadUint64(&counter2))
-	if c1 != 3 {
-		t.Error("Expected count 3, was", c1)
-	}
-	if c2 != 8 {
-		t.Error("Expected count 8, was", c2)
-	}
+		debounced := debounce.New(100 * time.Millisecond)
+
+		for range 3 {
+			for range 10 {
+				debounced(f1)
+			}
+
+			time.Sleep(200 * time.Millisecond)
+		}
+
+		for range 4 {
+			for range 10 {
+				debounced(f2)
+			}
+			for range 10 {
+				debounced(f3)
+			}
+
+			time.Sleep(200 * time.Millisecond)
+		}
+
+		c1 := int(atomic.LoadUint64(&counter1))
+		c2 := int(atomic.LoadUint64(&counter2))
+		if c1 != 3 {
+			t.Error("Expected count 3, was", c1)
+		}
+		if c2 != 8 {
+			t.Error("Expected count 8, was", c2)
+		}
+	})
 }
 
 func TestDebounceConcurrentAdd(t *testing.T) {
-	var wg sync.WaitGroup
+	synctest.Test(t, func(t *testing.T) {
+		var wg sync.WaitGroup
 
-	var flag uint64
+		var flag uint64
 
-	debounced := debounce.New(100 * time.Millisecond)
+		debounced := debounce.New(100 * time.Millisecond)
 
-	for range 10 {
-		wg.Go(func() {
-			debounced(func() {
-				atomic.CompareAndSwapUint64(&flag, 0, 1)
+		for range 10 {
+			wg.Go(func() {
+				debounced(func() {
+					atomic.CompareAndSwapUint64(&flag, 0, 1)
+				})
 			})
-		})
-	}
-	wg.Wait()
+		}
+		wg.Wait()
 
-	time.Sleep(500 * time.Millisecond)
-	c := int(atomic.LoadUint64(&flag))
-	if c != 1 {
-		t.Error("Flag not set")
-	}
+		time.Sleep(500 * time.Millisecond)
+		c := int(atomic.LoadUint64(&flag))
+		if c != 1 {
+			t.Error("Flag not set")
+		}
+	})
 }
 
 // Issue #1
 func TestDebounceDelayed(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var (
+			counter1 uint64
+		)
 
-	var (
-		counter1 uint64
-	)
+		f1 := func() {
+			atomic.AddUint64(&counter1, 1)
+		}
 
-	f1 := func() {
-		atomic.AddUint64(&counter1, 1)
-	}
+		debounced := debounce.New(100 * time.Millisecond)
 
-	debounced := debounce.New(100 * time.Millisecond)
+		time.Sleep(110 * time.Millisecond)
 
-	time.Sleep(110 * time.Millisecond)
+		debounced(f1)
 
-	debounced(f1)
+		time.Sleep(200 * time.Millisecond)
 
-	time.Sleep(200 * time.Millisecond)
-
-	c1 := int(atomic.LoadUint64(&counter1))
-	if c1 != 1 {
-		t.Error("Expected count 1, was", c1)
-	}
-
+		c1 := int(atomic.LoadUint64(&counter1))
+		if c1 != 1 {
+			t.Error("Expected count 1, was", c1)
+		}
+	})
 }
 
 func BenchmarkDebounce(b *testing.B) {
@@ -155,26 +160,28 @@ func ExampleNew() {
 }
 
 func TestDebounceCancel(t *testing.T) {
-	var called int32
+	synctest.Test(t, func(t *testing.T) {
+		var called int32
 
-	debounced, cancel := debounce.NewWithCancel(50 * time.Millisecond)
+		debounced, cancel := debounce.NewWithCancel(50 * time.Millisecond)
 
-	// Schedule a call that would normally be executed.
-	debounced(func() {
-		atomic.StoreInt32(&called, 1)
+		// Schedule a call that would normally be executed.
+		debounced(func() {
+			atomic.StoreInt32(&called, 1)
+		})
+
+		// Cancel it before the timer is triggered.
+		cancel()
+
+		// Wait slightly longer than the debounce interval - if cancel did not work,
+		//the function will execute and the test will fail.
+		time.Sleep(70 * time.Millisecond)
+
+		if atomic.LoadInt32(&called) != 0 {
+			t.Fatal("expected debounced function NOT to be called after cancel")
+		}
+
+		// Additionally, verify that calling cancel repeatedly is safe.
+		cancel()
 	})
-
-	// Cancel it before the timer is triggered.
-	cancel()
-
-	// Wait slightly longer than the debounce interval - if cancel did not work,
-	//the function will execute and the test will fail.
-	time.Sleep(70 * time.Millisecond)
-
-	if atomic.LoadInt32(&called) != 0 {
-		t.Fatal("expected debounced function NOT to be called after cancel")
-	}
-
-	// Additionally, verify that calling cancel repeatedly is safe.
-	cancel()
 }
