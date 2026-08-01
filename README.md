@@ -2,7 +2,6 @@
 
 [![Tests on Linux, MacOS and Windows](https://github.com/bep/debounce/workflows/Test/badge.svg)](https://github.com/bep/debounce/actions?query=workflow:Test)
 [![GoDoc](https://godoc.org/github.com/bep/debounce?status.svg)](https://godoc.org/github.com/bep/debounce)
-[![Go Report Card](https://goreportcard.com/badge/github.com/bep/debounce)](https://goreportcard.com/report/github.com/bep/debounce)
 [![codecov](https://codecov.io/gh/bep/debounce/branch/master/graph/badge.svg)](https://codecov.io/gh/bep/debounce)
 [![Release](https://img.shields.io/github/release/bep/debounce.svg?style=flat-square)](https://github.com/bep/debounce/releases/latest)
 
